@@ -29,15 +29,36 @@ ensure_items() {
   sketchybar "${a[@]}"
 }
 
+current_ssid() {
+  local s
+  s="$(ipconfig getsummary $IF 2>/dev/null | awk -F ' SSID : ' '/ SSID : / {print $2; exit}')"
+  [ -n "$s" ] && [ "$s" != "<redacted>" ] && { printf '%s' "$s"; return; }
+  s="$(ipconfig getsummary $IF 2>/dev/null | awk '/^sname = / {sub(/^sname = /,""); print; exit}')"
+  [ -n "$s" ] && { printf '%s' "$s"; return; }
+  s="$(networksetup -getairportnetwork $IF 2>/dev/null | sed -nE 's/^Current Wi-Fi Network: (.*)$/\1/p')"
+  [ -n "$s" ] && { printf '%s' "$s"; return; }
+  [ -f /tmp/sketchybar_wifi_ssid ] && cat /tmp/sketchybar_wifi_ssid
+}
+
+same_net() {
+  # Match "emdee" with preferred "emdee." (Personal Hotspot trailing dot)
+  local a b
+  a="$(printf '%s' "${1%.}" | tr '[:upper:]' '[:lower:]')"
+  b="$(printf '%s' "${2%.}" | tr '[:upper:]' '[:lower:]')"
+  [ "$a" = "$b" ]
+}
+
 build() {
   ensure_items
-  cur="$(sketchybar --query wifi | /usr/bin/jq -r .label.value)"
+  cur="$(current_ssid)"
   power="$(networksetup -getairportpower $IF | awk '{print $NF}')"
-  saved="$(networksetup -listpreferredwirelessnetworks $IF 2>/dev/null | sed 's/^[[:space:]]*//')"
+  saved="$(networksetup -listpreferredwirelessnetworks $IF 2>/dev/null | sed 's/^[[:space:]]*//' | awk 'NR>1 && NF')"
   if [ "$power" = "On" ]; then tlabel="Matikan Wi-Fi"; tcmd="Off"; else tlabel="Nyalakan Wi-Fi"; tcmd="On"; fi
   args=(--set wifi.p.toggle label="$tlabel"
         click_script="networksetup -setairportpower $IF $tcmd; sketchybar --set wifi popup.drawing=off; sleep 3; sketchybar --trigger wifi_change")
   SCAN=/tmp/sketchybar_wifi_scan.txt
+  MERGED=/tmp/sketchybar_wifi_merged.txt
+  : > "$MERGED"
   if [ ! -s "$SCAN" ]; then
     args+=(--set wifi.p.scan drawing=on label="    Memindai jaringan..." label.color=0xff9399b2 click_script="")
   elif grep -q '^#DENIED' "$SCAN"; then
@@ -45,6 +66,18 @@ build() {
            click_script="open 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices'")
   else
     args+=(--set wifi.p.scan drawing=off)
+    # Nearby networks first (by signal), then preferred/saved ones missing from the scan
+    # so Personal Hotspot like "emdee." still shows even when not currently beaconing.
+    awk -F'\t' 'NF>=2 && $1 !~ /^#/ {print}' "$SCAN" >> "$MERGED"
+    while IFS= read -r pref; do
+      [ -n "$pref" ] || continue
+      found=0
+      while IFS=$'\t' read -r ssid _rest; do
+        a="${ssid%.}"; b="${pref%.}"
+        if [ "${a}" = "${b}" ] || [ "$ssid" = "$pref" ]; then found=1; break; fi
+      done < "$MERGED"
+      [ $found -eq 0 ] && printf '%s\t-90\t1\n' "$pref" >> "$MERGED"
+    done <<< "$saved"
   fi
   i=0
   while IFS=$'\t' read -r ssid rssi secure; do
@@ -52,8 +85,11 @@ build() {
     case "$ssid" in \#*) continue ;; esac
     if [ "$rssi" -ge -55 ]; then sig="󰤨"; elif [ "$rssi" -ge -67 ]; then sig="󰤥"; elif [ "$rssi" -ge -78 ]; then sig="󰤢"; else sig="󰤟"; fi
     lock=""; [ "$secure" = "1" ] && lock="  􀎡"
-    if [ "$ssid" = "$cur" ]; then icol=0xffa6e3a1; lfont="SF Pro:Semibold:12.0"; else icol=0xffbac2de; lfont="SF Pro:Regular:12.0"; fi
-    if printf '%s\n' "$saved" | grep -qxF "$ssid" || [ "$secure" = "0" ]; then
+    if same_net "$ssid" "$cur"; then icol=0xffa6e3a1; lfont="SF Pro:Semibold:12.0"; else icol=0xffbac2de; lfont="SF Pro:Regular:12.0"; fi
+    # bash while in pipeline runs in subshell — redo match without pipeline
+    in_saved=0
+    while IFS= read -r p; do same_net "$ssid" "$p" && { in_saved=1; break; }; done <<< "$saved"
+    if [ $in_saved -eq 1 ] || [ "$secure" = "0" ]; then
       q=$(printf '%q' "$ssid")
       cs="sketchybar --set wifi label='Menyambung...' popup.drawing=off; networksetup -setairportnetwork $IF $q; sleep 2; sketchybar --trigger wifi_change"
     else
@@ -61,7 +97,7 @@ build() {
     fi
     args+=(--set "wifi.p.$i" drawing=on icon="$sig" icon.color=$icol label="$ssid$lock" label.font="$lfont" click_script="$cs")
     i=$((i+1)); [ $i -ge 10 ] && break
-  done < <(cat "$SCAN" 2>/dev/null)
+  done < <(cat "$MERGED" 2>/dev/null)
   while [ $i -lt 10 ]; do args+=(--set "wifi.p.$i" drawing=off); i=$((i+1)); done
   sketchybar "${args[@]}" --set wifi popup.drawing=on
 }
