@@ -41,7 +41,6 @@ current_ssid() {
 }
 
 same_net() {
-  # Match "emdee" with preferred "emdee." (Personal Hotspot trailing dot)
   local a b
   a="$(printf '%s' "${1%.}" | tr '[:upper:]' '[:lower:]')"
   b="$(printf '%s' "${2%.}" | tr '[:upper:]' '[:lower:]')"
@@ -50,15 +49,15 @@ same_net() {
 
 build() {
   ensure_items
+  # Open immediately so the first click always feels responsive.
+  sketchybar --set wifi popup.drawing=on
   cur="$(current_ssid)"
   power="$(networksetup -getairportpower $IF | awk '{print $NF}')"
   saved="$(networksetup -listpreferredwirelessnetworks $IF 2>/dev/null | sed 's/^[[:space:]]*//' | awk 'NR>1 && NF')"
   if [ "$power" = "On" ]; then tlabel="Matikan Wi-Fi"; tcmd="Off"; else tlabel="Nyalakan Wi-Fi"; tcmd="On"; fi
   args=(--set wifi.p.toggle label="$tlabel"
-        click_script="networksetup -setairportpower $IF $tcmd; sketchybar --set wifi popup.drawing=off; sleep 3; sketchybar --trigger wifi_change")
+        click_script="rm -f $D/sticky; networksetup -setairportpower $IF $tcmd; sketchybar --set wifi popup.drawing=off; sleep 3; sketchybar --trigger wifi_change")
   SCAN=/tmp/sketchybar_wifi_scan.txt
-  MERGED=/tmp/sketchybar_wifi_merged.txt
-  : > "$MERGED"
   if [ ! -s "$SCAN" ]; then
     args+=(--set wifi.p.scan drawing=on label="    Memindai jaringan..." label.color=0xff9399b2 click_script="")
   elif grep -q '^#DENIED' "$SCAN"; then
@@ -66,39 +65,30 @@ build() {
            click_script="open 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices'")
   else
     args+=(--set wifi.p.scan drawing=off)
-    # Nearby networks first (by signal), then preferred/saved ones missing from the scan
-    # so Personal Hotspot like "emdee." still shows even when not currently beaconing.
-    awk -F'\t' 'NF>=2 && $1 !~ /^#/ {print}' "$SCAN" >> "$MERGED"
-    while IFS= read -r pref; do
-      [ -n "$pref" ] || continue
-      found=0
-      while IFS=$'\t' read -r ssid _rest; do
-        a="${ssid%.}"; b="${pref%.}"
-        if [ "${a}" = "${b}" ] || [ "$ssid" = "$pref" ]; then found=1; break; fi
-      done < "$MERGED"
-      [ $found -eq 0 ] && printf '%s\t-90\t1\n' "$pref" >> "$MERGED"
-    done <<< "$saved"
   fi
   i=0
+  # Nearby only — same idea as macOS Wi-Fi menu (no offline saved networks).
   while IFS=$'\t' read -r ssid rssi secure; do
     [ -n "$ssid" ] || continue
     case "$ssid" in \#*) continue ;; esac
     if [ "$rssi" -ge -55 ]; then sig="󰤨"; elif [ "$rssi" -ge -67 ]; then sig="󰤥"; elif [ "$rssi" -ge -78 ]; then sig="󰤢"; else sig="󰤟"; fi
     lock=""; [ "$secure" = "1" ] && lock="  􀎡"
     if same_net "$ssid" "$cur"; then icol=0xffa6e3a1; lfont="SF Pro:Semibold:12.0"; else icol=0xffbac2de; lfont="SF Pro:Regular:12.0"; fi
-    # bash while in pipeline runs in subshell — redo match without pipeline
     in_saved=0
     while IFS= read -r p; do same_net "$ssid" "$p" && { in_saved=1; break; }; done <<< "$saved"
     if [ $in_saved -eq 1 ] || [ "$secure" = "0" ]; then
       q=$(printf '%q' "$ssid")
-      cs="sketchybar --set wifi label='Menyambung...' popup.drawing=off; networksetup -setairportnetwork $IF $q; sleep 2; sketchybar --trigger wifi_change"
+      cs="rm -f $D/sticky; sketchybar --set wifi label='Menyambung...' popup.drawing=off; networksetup -setairportnetwork $IF $q; sleep 2; sketchybar --trigger wifi_change"
     else
-      cs="sketchybar --set wifi popup.drawing=off; open 'x-apple.systempreferences:com.apple.wifi-settings-extension'"
+      cs="rm -f $D/sticky; sketchybar --set wifi popup.drawing=off; open 'x-apple.systempreferences:com.apple.wifi-settings-extension'"
     fi
     args+=(--set "wifi.p.$i" drawing=on icon="$sig" icon.color=$icol label="$ssid$lock" label.font="$lfont" click_script="$cs")
     i=$((i+1)); [ $i -ge 10 ] && break
-  done < <(cat "$MERGED" 2>/dev/null)
+  done < <(awk -F'\t' 'NF>=2 && $1 !~ /^#/ {print}' "$SCAN" 2>/dev/null)
   while [ $i -lt 10 ]; do args+=(--set "wifi.p.$i" drawing=off); i=$((i+1)); done
+  # Keep settings row click clearing sticky too
+  args+=(--set wifi.p.settings
+         click_script="rm -f $D/sticky; open 'x-apple.systempreferences:com.apple.wifi-settings-extension'; sketchybar --set wifi popup.drawing=off")
   sketchybar "${args[@]}" --set wifi popup.drawing=on
 }
 
@@ -106,23 +96,36 @@ is_open() { [ "$(sketchybar --query wifi | /usr/bin/jq -r .popup.drawing)" = "on
 
 echo "$(date +%T.%N | cut -c1-12) $SENDER $NAME" >> /tmp/sketchybar_wifi_events.log
 
-pin_young() { [ -e "$D/pin" ] && [ $(( $(date +%s) - $(stat -f %m "$D/pin") )) -lt 2 ]; }
-close_later() { ( sleep 0.35; while pin_young; do sleep 0.3; done
-  [ -z "$(ls -A "$D" | grep -v '^pin$')" ] && { rm -f "$D/pin"; sketchybar --set wifi popup.drawing=off; } ) & }
+close_popup() {
+  rm -f "$D"/*
+  sketchybar --set wifi popup.drawing=off
+}
 
 case "$SENDER" in
   mouse.entered)
-    touch "$D/$NAME" ;;   # hover never opens the popup; click does
+    touch "$D/$NAME" ;;
   mouse.exited)
-    rm -f "$D/$NAME"; close_later ;;
+    rm -f "$D/$NAME"
+    # Click-opened popups stay until click-outside or second click.
+    [ -e "$D/sticky" ] && exit 0
+    ( sleep 0.35; [ -z "$(ls -A "$D" 2>/dev/null)" ] && sketchybar --set wifi popup.drawing=off ) & ;;
   mouse.exited.global)
-    # ignore the spurious global-exit that can follow a click
-    if pin_young; then close_later; exit 0; fi
-    rm -f "$D"/*; sketchybar --set wifi popup.drawing=off ;;
+    # Click-opened (sticky) popups ignore global-exit: it fires spuriously on
+    # open and made the menu need several clicks. Close via second click or
+    # by choosing a row instead.
+    [ -e "$D/sticky" ] && exit 0
+    close_popup ;;
   mouse.clicked)
     if [ "$NAME" = "wifi" ]; then
-      if is_open; then rm -f "$D/pin"; sketchybar --set wifi popup.drawing=off
-      else touch "$D/pin" "$D/wifi"; build; rescan; fi
+      if [ -e "$D/sticky" ] && is_open; then
+        close_popup
+      else
+        mkdir -p "$D"
+        touch "$D/sticky" "$D/wifi"
+        date +%s > "$D/opened_at"
+        build
+        rescan
+      fi
     fi ;;
   rescan_done)
     is_open && build ;;
