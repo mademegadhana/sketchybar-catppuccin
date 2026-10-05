@@ -1,0 +1,223 @@
+#!/bin/bash
+# SketchyBar config — MacBook Air M3 (notch) — Catppuccin Mocha
+# Docs: https://felixkratz.github.io/SketchyBar/
+
+# shellcheck source=colors.sh
+source "$CONFIG_DIR/colors.sh"
+# shellcheck source=icons.sh
+source "$CONFIG_DIR/icons.sh"
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+# ---------------------------------------------------------------- fonts ----
+FONT="SF Pro"                       # labels (system font / brew cask font-sf-pro)
+NERD_FONT="Hack Nerd Font"          # glyph icons
+APP_FONT="sketchybar-app-font"      # app icons (ligatures like :safari:)
+
+# ------------------------------------------------------------------ bar ----
+# 37pt matches the native menu bar height on notched MacBooks.
+# notch_width is a bit wider than the physical notch (~185pt) as safety margin.
+sketchybar --bar position=top \
+                 height=37 \
+                 notch_width=200 \
+                 color="$BAR_COLOR" \
+                 border_color="$BAR_BORDER_COLOR" \
+                 border_width=0 \
+                 blur_radius=30 \
+                 shadow=off \
+                 sticky=on \
+                 topmost=off \
+                 padding_left=8 \
+                 padding_right=8 \
+                 margin=0 \
+                 y_offset=0 \
+                 corner_radius=0 \
+                 font_smoothing=on \
+                 display=all
+
+# ------------------------------------------------------------- defaults ----
+sketchybar --default updates=when_shown \
+                     icon.font="$NERD_FONT:Bold:12.0" \
+                     icon.color="$ICON_COLOR" \
+                     icon.padding_left=8 \
+                     icon.padding_right=4 \
+                     label.font="$FONT:Semibold:11.0" \
+                     label.color="$LABEL_COLOR" \
+                     label.padding_left=4 \
+                     label.padding_right=8 \
+                     background.color="$ITEM_BG_COLOR" \
+                     background.corner_radius=8 \
+                     background.height=26 \
+                     background.drawing=on \
+                     padding_left=3 \
+                     padding_right=3 \
+                     popup.background.color="$POPUP_BG_COLOR" \
+                     popup.background.border_color="$POPUP_BORDER_COLOR" \
+                     popup.background.border_width=1 \
+                     popup.background.corner_radius=10 \
+                     popup.blur_radius=30
+
+# ======================================================== LEFT SIDE ========
+
+# --- Apple logo with a small popup menu ---
+sketchybar --add item apple left \
+           --set apple icon="$APPLE" \
+                       icon.font="$NERD_FONT:Bold:14.0" \
+                       icon.color="$ACCENT_COLOR" \
+                       icon.padding_left=10 \
+                       icon.padding_right=10 \
+                       label.drawing=off \
+                       popup.align=left \
+                       click_script="sketchybar --set apple popup.drawing=toggle" \
+           --add item apple.settings popup.apple \
+           --set apple.settings icon="$GEAR" label="System Settings" \
+                       background.drawing=off \
+                       click_script="open -a 'System Settings'; sketchybar --set apple popup.drawing=off" \
+           --add item apple.activity popup.apple \
+           --set apple.activity icon="$ACTIVITY" label="Activity Monitor" \
+                       background.drawing=off \
+                       click_script="open -a 'Activity Monitor'; sketchybar --set apple popup.drawing=off" \
+           --add item apple.lock popup.apple \
+           --set apple.lock icon="$LOCK" label="Lock Screen" \
+                       background.drawing=off \
+                       click_script="sketchybar --set apple popup.drawing=off; pmset displaysleepnow" \
+           --add item apple.sleep popup.apple \
+           --set apple.sleep icon="$SLEEP" label="Sleep" \
+                       background.drawing=off \
+                       click_script="sketchybar --set apple popup.drawing=off; pmset sleepnow" \
+           --add item apple.restart popup.apple \
+           --set apple.restart icon="$RESTART" label="Restart..." \
+                       background.drawing=off \
+                       click_script="sketchybar --set apple popup.drawing=off; osascript -e 'tell application \"loginwindow\" to «event aevtrrst»'" \
+           --add item apple.shutdown popup.apple \
+           --set apple.shutdown icon="$POWER" label="Shut Down..." \
+                       background.drawing=off \
+                       click_script="sketchybar --set apple popup.drawing=off; osascript -e 'tell application \"loginwindow\" to «event aevtrsdn»'" \
+           --add item apple.logout popup.apple \
+           --set apple.logout icon="$LOGOUT" label="Log Out..." \
+                       background.drawing=off \
+                       click_script="sketchybar --set apple popup.drawing=off; osascript -e 'tell application \"loginwindow\" to «event aevtrlgo»'"
+
+# --- AeroSpace workspaces 1-9 (Option+angka). Kosong & tidak aktif = disembunyikan ---
+sketchybar --add event aerospace_workspace_change
+for sid in 1 2 3 4 5 6 7 8 9; do
+  sketchybar --add item "space.$sid" left \
+             --set "space.$sid" icon="$sid" \
+                   icon.font="$FONT:Bold:11.0" \
+                   icon.color="$SUBTEXT" \
+                   icon.highlight_color=0xffcdd6f4 \
+                   icon.padding_left=10 \
+                   icon.padding_right=10 \
+                   label.font="$APP_FONT:Regular:12.0" \
+                   label.color="$SUBTEXT" \
+                   label.highlight_color=0xffcdd6f4 \
+                   label.padding_left=0 \
+                   label.padding_right=10 \
+                   label.y_offset=-1 \
+                   label.drawing=off \
+                   background.color="$ITEM_BG_COLOR" \
+                   padding_left=2 \
+                   padding_right=2 \
+                   click_script="/opt/homebrew/bin/aerospace workspace $sid"
+done
+
+# Observer: packs workspaces 1..N and redraws them (events + every 2s for closed windows)
+sketchybar --add item workspaces left \
+           --set workspaces drawing=off updates=on update_freq=2 \
+                 script="$PLUGIN_DIR/workspaces.sh" \
+           --subscribe workspaces aerospace_workspace_change front_app_switched system_woke
+
+# --- Front app (icon + name), kept short so it never reaches the notch ---
+sketchybar --add item front_app left \
+           --set front_app icon.font="$APP_FONT:Regular:13.0" \
+                 icon.color="$ACCENT_COLOR" \
+                 label.max_chars=22 \
+                 padding_left=8 \
+                 script="$PLUGIN_DIR/front_app.sh" \
+           --subscribe front_app front_app_switched
+
+# ======================================================= RIGHT SIDE ========
+# Items are added right-to-left.
+
+sketchybar --add item clock right \
+           --set clock icon="$CALENDAR" \
+                 icon.color="$BLUE" \
+                 update_freq=10 \
+                 script="$PLUGIN_DIR/clock.sh" \
+                 click_script="$PLUGIN_DIR/clock_popup.sh" popup.align=right popup.background.color=0xf01e1e2e popup.background.corner_radius=10 popup.background.border_width=1 popup.background.border_color=0xff45475a \
+           --subscribe clock system_woke
+
+sketchybar --add item battery right \
+           --set battery update_freq=120 \
+                 script="$PLUGIN_DIR/battery.sh" \
+                 click_script="$PLUGIN_DIR/battery_popup.sh" popup.align=right popup.background.color=0xf01e1e2e popup.background.corner_radius=10 popup.background.border_width=1 popup.background.border_color=0xff45475a \
+           --subscribe battery system_woke power_source_change
+
+sketchybar --add item wifi right \
+           --set wifi update_freq=30 \
+                 label.max_chars=14 \
+                 script="$PLUGIN_DIR/wifi.sh" \
+                 popup.align=right popup.background.color=0xf01e1e2e popup.background.corner_radius=10 popup.background.border_width=1 popup.background.border_color=0xff45475a \
+           --subscribe wifi wifi_change system_woke mouse.entered mouse.exited mouse.exited.global mouse.clicked
+
+sketchybar --add item volume right \
+           --set volume icon.color="$TEAL" \
+                 script="$PLUGIN_DIR/volume.sh" \
+           --subscribe volume volume_change mouse.clicked mouse.scrolled mouse.entered mouse.exited
+
+# Volume slider: hidden (width 0), slides out on hover over the volume icon
+sketchybar --add slider volume_slider right 0 \
+           --set volume_slider script="$PLUGIN_DIR/volume_slider.sh" \
+                 updates=on \
+                 padding_left=0 padding_right=0 \
+                 icon.drawing=off label.drawing=off \
+                 background.drawing=off \
+                 slider.width=0 \
+                 slider.background.height=5 \
+                 slider.background.corner_radius=3 \
+                 slider.background.color=0xff45475a \
+                 slider.highlight_color=$ACCENT_COLOR \
+                 slider.knob="●" \
+                 slider.knob.drawing=off \
+                 slider.knob.color=0xffcdd6f4 \
+           --subscribe volume_slider volume_change mouse.clicked mouse.entered mouse.exited
+
+sketchybar --add item cpu right \
+           --set cpu icon="$CPU" \
+                 icon.color="$GREEN" \
+                 update_freq=3 \
+                 label="--%" \
+                 script="$PLUGIN_DIR/cpu.sh" \
+                 click_script="open -a 'Activity Monitor'"
+
+sketchybar --add item memory right \
+           --set memory icon="󰍛" \
+                 label="--%" \
+                 click_script="open -a 'Activity Monitor'" \
+           --add item temp right \
+           --set temp icon="" \
+                 label="--°C" \
+                 update_freq=5 \
+                 script="$PLUGIN_DIR/sysstats.sh" \
+                 click_script="open -a 'Activity Monitor'" \
+           --subscribe temp system_woke
+
+# --- Now playing (Spotify / Apple Music) ---
+# Placed at position "e" = directly right of the notch, hidden when nothing plays.
+sketchybar --add event spotify_change com.spotify.client.PlaybackStateChanged \
+           --add event music_change com.apple.Music.playerInfo \
+           --add item media e \
+           --set media drawing=off \
+                 updates=on \
+                 icon="$MUSIC" \
+                 icon.color="$PINK" \
+                 label.max_chars=28 \
+                 scroll_texts=on \
+                 padding_left=10 \
+                 script="$PLUGIN_DIR/media.sh" \
+           --subscribe media spotify_change music_change media_change mouse.clicked
+
+# ------------------------------------------------------------ finalize ----
+sketchybar --hotload on
+sketchybar --update
+echo "sketchybar configuration loaded.."

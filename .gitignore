@@ -1,0 +1,5 @@
+# local backups
+*.bak
+*.bak*
+*.pre-*
+.DS_Store
