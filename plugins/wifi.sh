@@ -12,6 +12,12 @@ iface="$(networksetup -listallhardwareports 2>/dev/null \
           | awk '/Hardware Port: (Wi-Fi|AirPort)/ {getline; print $2; exit}')"
 iface="${iface:-en0}"
 
+# 0) Wi-Fi radio powered off -> show off state (skip SSID/cache lookup)
+if networksetup -getairportpower "$iface" 2>/dev/null | grep -q ': Off$'; then
+  sketchybar --set "$NAME" icon="$WIFI_DISCONNECTED" icon.color="$GREY" label="Off"
+  exit 0
+fi
+
 is_valid() {
   [ -n "$1" ] && [ "$1" != "<redacted>" ] && [ "$1" != "You are not associated with an AirPort network." ]
 }
