@@ -12,6 +12,11 @@ LOCK=/tmp/sketchybar_workspaces.lock
 mkdir "$LOCK" 2>/dev/null || exit 0
 trap 'rmdir "$LOCK"' EXIT
 
+if ! pgrep -xq AeroSpace; then
+  a=(); for s in 1 2 3 4 5 6 7 8 9; do a+=(--set "space.$s" drawing=off); done
+  sketchybar "${a[@]}"; exit 0
+fi
+
 focused="$($AS list-workspaces --focused 2>/dev/null)" || exit 0
 [ -n "$focused" ] || exit 0
 

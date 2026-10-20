@@ -13,6 +13,6 @@ while IFS= read -r line; do
 done < <(cal | sed '/^ *$/d')
 args+=(--add item clock.cal.open popup.clock
        --set clock.cal.open icon.drawing=off label="Buka Kalender" background.drawing=off
-             label.padding_left=10 label.color=0xffcba6f7
+             label.padding_left=10 label.color=0xffe6e6e6
              click_script="open -a Calendar; sketchybar --set clock popup.drawing=off")
 sketchybar "${args[@]}" --set clock popup.drawing=toggle

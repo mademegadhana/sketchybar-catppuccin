@@ -1,32 +1,32 @@
 #!/bin/bash
 # shellcheck disable=SC2034  # variables are used by files that source this one
-# Theme: Catppuccin Mocha  (https://catppuccin.com/palette)
-# Format: 0xAARRGGBB  (AA = alpha/opacity, ff = opaque, 00 = transparent)
-# To change theme, just edit the hex values below and run: sketchybar --reload
+# Theme: Monochrome minimal (putih / abu-abu / gelap transparan)
+# Format: 0xAARRGGBB. Tema ungu lama: colors.sh.bak-purple / ~/.config/sketchybar.bak-mono-*
 
-export BLACK=0xff11111b     # crust
-export WHITE=0xffcdd6f4     # text
-export RED=0xfff38ba8
-export GREEN=0xffa6e3a1
-export BLUE=0xff89b4fa
-export YELLOW=0xfff9e2af
-export ORANGE=0xfffab387    # peach
-export MAGENTA=0xffcba6f7   # mauve
-export PINK=0xfff5c2e7
-export TEAL=0xff94e2d5
-export GREY=0xff7f849c      # overlay1
-export SUBTEXT=0xffa6adc8   # subtext0
+export BLACK=0xff111111
+export WHITE=0xffe6e6e6
+export GREY=0xff8a8a8a
+export SUBTEXT=0xff9a9a9a
 export TRANSPARENT=0x00000000
+# Warna lama dipetakan ke monokrom (supaya plugin tetap jalan tanpa warna)
+export RED=$WHITE        # status peringatan: putih terang
+export ORANGE=$WHITE
+export YELLOW=$WHITE
+export GREEN=$WHITE
+export BLUE=$WHITE
+export TEAL=$WHITE
+export PINK=$WHITE
+export MAGENTA=$WHITE
 
 # Bar & item backgrounds
-export BAR_COLOR=0xcc1e1e2e        # base, ~80% opacity (translucent)
-export BAR_BORDER_COLOR=0xff313244 # surface0
-export ITEM_BG_COLOR=0xff313244    # surface0
-export ITEM_BG_ACTIVE=0xff45475a   # surface1
-export POPUP_BG_COLOR=0xf01e1e2e
-export POPUP_BORDER_COLOR=0xff585b70
+export BAR_COLOR=0xb0101010
+export BAR_BORDER_COLOR=0x00000000
+export ITEM_BG_COLOR=0x00000000      # tanpa kotak di belakang item
+export ITEM_BG_ACTIVE=0x22ffffff
+export POPUP_BG_COLOR=0xf0161616
+export POPUP_BORDER_COLOR=0xff2e2e2e
 
 # Semantic colors
 export ICON_COLOR=$WHITE
 export LABEL_COLOR=$WHITE
-export ACCENT_COLOR=0xff5b4680   # darker mauve
+export ACCENT_COLOR=0x26ffffff       # sorotan workspace aktif: putih tipis

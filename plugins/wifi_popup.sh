@@ -12,7 +12,7 @@ ensure_items() {
   sketchybar --query wifi.p.settings >/dev/null 2>&1 && return
   common=(icon.drawing=off background.drawing=off label.padding_left=12 label.padding_right=12
           script="$CONFIG_DIR/plugins/wifi_popup.sh")
-  a=(--add item wifi.p.toggle popup.wifi --set wifi.p.toggle "${common[@]}" label.color=0xffcba6f7
+  a=(--add item wifi.p.toggle popup.wifi --set wifi.p.toggle "${common[@]}" label.color=0xffe6e6e6
      --subscribe wifi.p.toggle mouse.entered mouse.exited
      --add item wifi.p.scan popup.wifi --set wifi.p.scan "${common[@]}" drawing=off
      --subscribe wifi.p.scan mouse.entered mouse.exited)
@@ -23,7 +23,7 @@ ensure_items() {
         --subscribe "wifi.p.$n" mouse.entered mouse.exited)
   done
   a+=(--add item wifi.p.settings popup.wifi --set wifi.p.settings "${common[@]}" label="Pengaturan Wi-Fi..."
-      label.color=0xff9399b2
+      label.color=0xff8a8a8a
       click_script="open 'x-apple.systempreferences:com.apple.wifi-settings-extension'; sketchybar --set wifi popup.drawing=off"
       --subscribe wifi.p.settings mouse.entered mouse.exited)
   sketchybar "${a[@]}"
@@ -59,9 +59,9 @@ build() {
         click_script="rm -f $D/sticky; networksetup -setairportpower $IF $tcmd; sketchybar --set wifi popup.drawing=off; sleep 3; sketchybar --trigger wifi_change")
   SCAN=/tmp/sketchybar_wifi_scan.txt
   if [ ! -s "$SCAN" ]; then
-    args+=(--set wifi.p.scan drawing=on label="    Memindai jaringan..." label.color=0xff9399b2 click_script="")
+    args+=(--set wifi.p.scan drawing=on label="    Memindai jaringan..." label.color=0xff8a8a8a click_script="")
   elif grep -q '^#DENIED' "$SCAN"; then
-    args+=(--set wifi.p.scan drawing=on label="    Izinkan Lokasi untuk SketchyWiFi" label.color=0xfffab387
+    args+=(--set wifi.p.scan drawing=on label="    Izinkan Lokasi untuk SketchyWiFi" label.color=0xffe6e6e6
            click_script="open 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices'")
   else
     args+=(--set wifi.p.scan drawing=off)
@@ -73,7 +73,7 @@ build() {
     case "$ssid" in \#*) continue ;; esac
     if [ "$rssi" -ge -55 ]; then sig="󰤨"; elif [ "$rssi" -ge -67 ]; then sig="󰤥"; elif [ "$rssi" -ge -78 ]; then sig="󰤢"; else sig="󰤟"; fi
     lock=""; [ "$secure" = "1" ] && lock="  􀎡"
-    if same_net "$ssid" "$cur"; then icol=0xffa6e3a1; lfont="SF Pro:Semibold:12.0"; else icol=0xffbac2de; lfont="SF Pro:Regular:12.0"; fi
+    if same_net "$ssid" "$cur"; then icol=0xffffffff; lfont="SF Pro:Semibold:12.0"; else icol=0xff8a8a8a; lfont="SF Pro:Regular:12.0"; fi
     in_saved=0
     while IFS= read -r p; do same_net "$ssid" "$p" && { in_saved=1; break; }; done <<< "$saved"
     if [ $in_saved -eq 1 ] || [ "$secure" = "0" ]; then

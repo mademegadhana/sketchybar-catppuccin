@@ -17,6 +17,6 @@ while IFS= read -r a; do mapfile_args+=("$a"); done < <(
   row 1 "Baterai: $pct  ($st)"
   row 2 "Sisa waktu: ${remain% remaining}"
   row 3 "Kesehatan: ${maxcap:-?}   Siklus: ${cycles:-?}"
-  printf '%s\n' --add item battery.p.4 popup.battery --set battery.p.4 icon.drawing=off background.drawing=off "label=Pengaturan Baterai" label.padding_left=10 label.color=0xffcba6f7 "click_script=open 'x-apple.systempreferences:com.apple.Battery-Settings.extension'; sketchybar --set battery popup.drawing=off"
+  printf '%s\n' --add item battery.p.4 popup.battery --set battery.p.4 icon.drawing=off background.drawing=off "label=Pengaturan Baterai" label.padding_left=10 label.color=0xffe6e6e6 "click_script=open 'x-apple.systempreferences:com.apple.Battery-Settings.extension'; sketchybar --set battery popup.drawing=off"
 )
 sketchybar --remove '/battery\.p\..*/' "${mapfile_args[@]}" --set battery popup.drawing=toggle
